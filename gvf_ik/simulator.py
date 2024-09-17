@@ -39,6 +39,9 @@ class simulator:
 
         self.omega = np.zeros(self.N)
 
+        self.p_pred = np.copy(self.p)
+        self.pd_dot = None
+
         # Simulator data
         self.data = {
                 "t": [],
@@ -46,6 +49,7 @@ class simulator:
                 "theta": [],
                 "phi": [],
                 "e": [],
+                "p_pred": [],
                 "omega_d": [],
                 "omega_gvf": [],
                 "omega": [],
@@ -62,6 +66,7 @@ class simulator:
         self.data["theta"].append(self.theta.copy())
         self.data["phi"].append(self.phi.copy())
         self.data["e"].append(self.e.copy())
+        self.data["p_pred"].append(self.p_pred.copy())
 
         self.data["omega_d"].append(self.omega_d.copy())
         self.data["omega_gvf"].append(self.omega_gvf.copy())
@@ -98,7 +103,65 @@ class simulator:
 
         return un_norm2 < v**2
 
-    def gvf_control_inv(self):
+    def gvf_control_IK_pred(self):
+        # 1. Collect GVF trajectory data
+        phi = self.traj.phi(self.p_pred)    # Phi value    N x 1
+        J = self.traj.grad_phi(self.p_pred) # Phi gradient N x 2
+
+        for i in range(self.N):
+
+            J1 = J[i,0]
+            J2 = J[i,1]
+            
+            J_Jt = (J1*J1 + J2*J2)
+
+            cond_flag = self.gvf_check_alpha(J1, J2, phi[i], self.v[i])
+
+            # 2. Compute th feedforward error
+            if cond_flag:
+                e = phi[i] + self.A_fd * np.sin(self.omega_fd * self.t)
+                e_tdot = self.omega_fd * self.A_fd * np.cos(self.omega_fd * self.t)
+            else:
+                e = phi[i]
+                e_tdot = 0
+
+            # 3. Compute the input term of p_dot (normal term)
+            u = - self.ke * e
+
+            un_x = J1 / J_Jt * (u - e_tdot)
+            un_y = J2 / J_Jt * (u - e_tdot)
+
+            un_norm2 = un_x*un_x + un_y*un_y
+            un_norm = np.sqrt(un_norm2)
+
+            # 4. Compute alpha and the tangent term of p_dot
+            ut_x = self.s * J2
+            ut_y = -self.s * J1
+
+            ut_norm = np.sqrt(ut_x**2 + ut_y**2)
+            
+            ut_hat_x = ut_x / ut_norm
+            ut_hat_y = ut_y / ut_norm
+            
+            # 5. Compute alpha and p_dot
+            if cond_flag:
+                alpha = np.sqrt(self.v[i]**2 - un_norm2)
+
+                pd_dot_x = alpha * ut_hat_x + un_x
+                pd_dot_y = alpha * ut_hat_y + un_y
+            else:
+                alpha = 0
+                
+                pd_dot_x = self.v[i] * un_x / un_norm
+                pd_dot_y = self.v[i] * un_y / un_norm
+
+        # TODO: fix, just consider the last agent right now
+        if cond_flag:
+            self.pd_dot = np.array([pd_dot_x, pd_dot_y])
+        else:
+            self.pd_dot = None
+
+    def gvf_control_IK(self):
         # 1. Collect GVF trajectory data
         phi = self.traj.phi(self.p)    # Phi value    N x 1
         J = self.traj.grad_phi(self.p) # Phi gradient N x 2
@@ -224,7 +287,7 @@ class simulator:
         """
 
         # Compute the GVF omega control law
-        self.omega_gvf = self.gvf_control_inv()
+        self.omega_gvf = self.gvf_control_IK()
         self.omega = self.clip_omega(self.omega_gvf)
 
         # Integrate
@@ -233,6 +296,12 @@ class simulator:
         self.t = self.t + self.dt
         self.p = self.p + p_dot * self.dt
         self.theta = (self.theta + self.omega * self.dt) % (2*np.pi)
+
+        if self.pd_dot is not None:
+            self.gvf_control_IK_pred()
+            self.p_pred = self.p_pred + self.pd_dot * self.dt
+        else:
+            self.p_pred = np.copy(self.p)
 
         # Update output data
         self.update_data()

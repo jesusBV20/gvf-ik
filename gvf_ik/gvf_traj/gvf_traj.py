@@ -72,7 +72,7 @@ class gvf_traj:
         norm = np.sqrt(self.mapgrad_vec[:,0]**2 + self.mapgrad_vec[:,1]**2)[:,None]
         self.mapgrad_vec = self.mapgrad_vec / norm
 
-    def draw(self, fig=None, ax=None, xlim=None, ylim=None, draw_field=True, alpha=0.2, ls="--", lw=1, width=0.0025):
+    def draw(self, fig=None, ax=None, xlim=None, ylim=None, draw_field=True, alpha=0.2, ls="--", lw=1, width=0.0025, color="k"):
         """
         Plot the trajectory and the vector field.
         """
@@ -90,18 +90,17 @@ class gvf_traj:
         # Get the trajectory points
         self.traj_points = self.gen_param_points()
 
-        # Gen the vector field
-        if self.mapgrad_vec is None:
-            self.gen_vector_field()
-
         # Plot the trajectory
         ax.plot(self.XYoff[0], self.XYoff[1], "+k", zorder=0)
-        ax.plot(self.traj_points[0], self.traj_points[1], "k", ls=ls, lw=lw, zorder=0)
+        traj, = ax.plot(self.traj_points[0], self.traj_points[1], c=color, ls=ls, lw=lw, zorder=0)
 
         # Plot the vector field
         if draw_field:
-            field = ax.quiver(self.mapgrad_pos[:,0], self.mapgrad_pos[:,1], \
-                                self.mapgrad_vec[:,0], self.mapgrad_vec[:,1], \
-                                alpha=alpha, width=width)
+            if self.mapgrad_vec is not None:
+                ax.quiver(self.mapgrad_pos[:,0], self.mapgrad_pos[:,1],
+                          self.mapgrad_vec[:,0], self.mapgrad_vec[:,1],
+                          alpha=alpha, width=width)
+            else:
+                print("Please run gen_vector_field() first.")
             
-        return fig, ax
+        return traj

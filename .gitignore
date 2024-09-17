@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *.out
+.vscode/
 
 # Tmp, output and model folders
 output/

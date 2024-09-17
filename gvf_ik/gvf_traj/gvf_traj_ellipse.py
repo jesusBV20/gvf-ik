@@ -38,8 +38,6 @@ class gvf_ellipse(gvf_traj):
     pel = (p - w) @ self.R
     return 2 * pel / [self.a**2, self.b**2] @ self.R.T
 
-
-
   def hess_phi(self, p):
     H = np.zeros((2,2))
     H[0,0] = 2 * (self.cosa**2 / self.a**2 + self.sina**2 / self.b**2)
