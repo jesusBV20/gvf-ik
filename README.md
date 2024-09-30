@@ -2,7 +2,7 @@
 
 ## Research paper
 
-Inverse kinematics is a fundamental technique for
+**ABSTRACT:** Inverse kinematics is a fundamental technique for
 motion and positioning control in robotics, typically applied
 to end-effectors. In this paper, we extend the concept of
 inverse kinematics to guiding vector fields for path following
